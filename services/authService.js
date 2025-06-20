@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
-import User from '../models/user.js';
-import generateToken from '../utils/generateToken.js';
+import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+import { generateAccessToken, generateRefreshToken } from '../utils/generateToken.js';
+
 
 export const registerUser = async (email, password) => {
     const userExists = await User.findOne({ email });
@@ -8,7 +10,10 @@ export const registerUser = async (email, password) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({ email, password: hashedPassword });
-    return generateToken(newUser._id);
+    return {
+        accessToken: generateAccessToken(newUser._id),
+        refreshToken: generateRefreshToken(newUser._id),
+    };
 };
 
 export const loginUser = async (email, password) => {
@@ -16,5 +21,13 @@ export const loginUser = async (email, password) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
         throw new Error('Invalid credentials');
     }
-    return generateToken(user._id);
+    return {
+        accessToken: generateAccessToken(user._id),
+        refreshToken: generateRefreshToken(user._id),
+    };
+};
+
+export const refreshAccessToken = async (refreshToken) => {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    return generateAccessToken(decoded.id);
 };
